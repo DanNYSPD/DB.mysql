@@ -201,13 +201,14 @@ namespace Xarenisoft.DB.Mysql
             }
         }
 
-        public void Insert<T>(T obj)
+        public int Insert<T>(T obj)
         {
             using (var conn = this.Connect())
             {
                 
                 Type type = typeof(T);
                 var properties = type.GetProperties().ToList();
+                properties = properties.Select(z => z).Where(z => z.Name != "id").ToList();
 
                 var sql = string.Format("INSERT INTO {0}",type.Name);
                 var s=properties.Select(x => x.Name);
@@ -221,12 +222,16 @@ namespace Xarenisoft.DB.Mysql
 
                 foreach (var p in properties)
                 {
-                    command.Parameters.Add(new MySqlParameter("@"+p.Name,MySqlDbType.));
+                    command.Parameters.Add(new MySqlParameter() { ParameterName = "@" + p.Name, Value =p.GetValue(obj)});
                 }
+                var res=command.ExecuteNonQuery();
+                
+                return res;
             }
         }
-        private MySqlDbType resolveType() {
+        private MySqlDbType resolveType(string typeName) {
 
+            return MySqlDbType.Binary;
         }
         public MySqlConnection Connect()
         {
