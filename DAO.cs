@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Dapper;
+using System.Data;
 
 namespace Xarenisoft.DB.Mysql
 {
@@ -49,11 +51,37 @@ namespace Xarenisoft.DB.Mysql
             return sql;
         }
 
-
-        
-        public string Insert(string tableName, List<MySqlParameter> insertParams)
+        public int Insert(string tableName, List<MySqlParameter> insertParams)
         {
-            var sql = String.Format("INSERT INTO {0} SET  (", tableName);
+            var sql = this.InsertResolver(tableName, insertParams);
+            using (var conn = this.Connect())
+            {
+                MySqlCommand command = new MySqlCommand(sql, conn);
+                insertParams.ForEach(p => command.Parameters.Add(p));
+                /*Return value
+                *The number of rows affected.
+                */
+                int res=command.ExecuteNonQuery();
+                if (1 != res) {//it must be 1, that is, one row affected
+                    return -1;
+                }
+                var commandId = new MySqlCommand("select LAST_INSERT_ID();",conn);
+               var scalarRes=  commandId.ExecuteScalar();
+                if (null != scalarRes) {
+                    return Convert.ToInt32(scalarRes);
+                }
+                else{
+                    return -1;
+                }
+
+
+            }
+        }
+        public string InsertResolver(string tableName, List<MySqlParameter> insertParams)
+        {
+            var sql = String.Format("INSERT INTO {0}   (", tableName);
+            List<string> paramsNames = new List<string>();
+            List<string> paramsNamesP = new List<string>();
             insertParams.ForEach(p => {
                 string name = "";
                 if (p.ParameterName.StartsWith("@"))
@@ -63,12 +91,23 @@ namespace Xarenisoft.DB.Mysql
                 else if (p.ParameterName.StartsWith("?"))
                 {
                     name = p.ParameterName.Substring(1);
+                }else{
+                    name = "@" + name;
+                    //throw new ArgumentException("parameter name must containt ? or @ either at the beginning");
                 }
                 //ya que tengo el nombre uedo generar los set
-                sql += ", " + name;
+                // sql +=  name + ", ";
+                paramsNames.Add(name);
+                paramsNamesP.Add(p.ParameterName);
             });
+           sql+= String.Join(",", paramsNames.ToArray());
+
             sql += ") values(";
-            insertParams.ConvertAll(p =>
+
+
+            sql+= String.Join(",", paramsNamesP.ToArray());
+            /*
+                        insertParams.ConvertAll(p =>
             {
                 string name = "";
                 if (p.ParameterName.StartsWith("@"))
@@ -81,6 +120,8 @@ namespace Xarenisoft.DB.Mysql
                 }
                 return name;
             });
+            */
+
             sql += ");";
             return sql;
         }
@@ -89,7 +130,7 @@ namespace Xarenisoft.DB.Mysql
         {
             using (var conn = this.Connect())
             {
-
+                
                 MySqlCommand command = new MySqlCommand(sql, conn);
                 //I add all the passed paramteers
                 parameters.ForEach(p => command.Parameters.Add(p));
@@ -107,7 +148,8 @@ namespace Xarenisoft.DB.Mysql
             }
         }
 
-        public T querySingle<T>(string sql, Func<MySqlDataReader, T> actionWithResult, List<MySqlParameter> parameters)
+    
+        public T querySingle<T>(string sql,  List<MySqlParameter> parameters,Func<MySqlDataReader, T> actionWithResult)
         {
             using (var conn = this.Connect())
             {
@@ -240,18 +282,26 @@ namespace Xarenisoft.DB.Mysql
 
             myConnectionString = "server=127.0.0.1;uid=root;" +
                 "pwd=123456;database=poe_app_piloto";
-
+            //si la conexion esta abierta 
+            if (this.connection != null && this.connection.State != ConnectionState.Closed) {
+                return this.connection;
+            }
             try
             {
                 conn = new MySqlConnection();
                 conn.ConnectionString = myConnectionString;
                 conn.Open();
-                return conn;
+                this.connection = conn;
+                return this.connection;
             }
             catch (MySqlException ex)
             {
                 throw ex;
             }
+        }
+        protected MySqlConnection connection { get; set; }
+        public MySqlConnection getConnection() {
+            return this.Connect();
         }
     }
 }
