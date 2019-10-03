@@ -138,7 +138,7 @@ namespace Xarenisoft.DB.Mysql
 
                 MySqlDataReader rdr = command.ExecuteReader();
 
-                List<T> lst = new List<T>();
+                    List<T> lst = new List<T>();
                 while (rdr.Read())
                 {
                     lst.Add(actionWithResult(rdr));

@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="DAO.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="Pagination.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
