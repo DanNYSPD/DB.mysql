@@ -15,9 +15,10 @@ namespace Xarenisoft.DB.Mysql
     /// This Class is created to increase the development productivity when EntityFramwork is not available.
     /// 
     /// </summary>
-    public class DAO
+    public class BaseDAO
     {
-        private string Update(string tableName, List<MySqlParameter> setParamaters, List<MySqlParameter> whereParameters)
+        /*
+        public string Update(string tableName, List<MySqlParameter> setParamaters, List<MySqlParameter> whereParameters)
         {
             var sql = String.Format("UPDATE {0} SET  ", tableName);
             setParamaters.ForEach(p => {
@@ -51,16 +52,14 @@ namespace Xarenisoft.DB.Mysql
             return sql;
         }
 
+     */
         public int Insert(string tableName, List<MySqlParameter> insertParams)
         {
             var sql = this.InsertResolver(tableName, insertParams);
             using (var conn = this.Connect())
             {
                 MySqlCommand command = new MySqlCommand(sql, conn);
-                insertParams.ForEach(p => command.Parameters.Add(p));
-                /*Return value
-                *The number of rows affected.
-                */
+               
                 int res=command.ExecuteNonQuery();
                 if (1 != res) {//it must be 1, that is, one row affected
                     return -1;
@@ -76,6 +75,61 @@ namespace Xarenisoft.DB.Mysql
 
 
             }
+        }
+       
+        
+        public void Update(string tableName, List<MySqlParameter> insertParams, List<MySqlParameter> whereParams)
+        {
+            var sql = this.UpdateResolver(tableName, insertParams, whereParams);
+            using (var conn = this.Connect())
+            {
+                MySqlCommand command = new MySqlCommand(sql, conn);
+                insertParams.ForEach(p => command.Parameters.Add(p));
+               
+                int res = command.ExecuteNonQuery();
+              
+                
+
+            }
+        }
+        public string UpdateResolver(string tableName, List<MySqlParameter> sets, List<MySqlParameter> wheres)
+        {
+            var sql = String.Format("UPDATE  {0} SET   ", tableName);
+            List<string> paramsNames = new List<string>();
+            List<string> paramsNamesP = new List<string>();
+            string set = "";
+            sets.ForEach(p => {
+              string name=  this.getRealName(p.ParameterName);
+                set += name + "=" + p.ParameterName;
+            });
+            string where = " where 1=1";
+            wheres.ForEach(w => //only ands (for now)
+            {
+                string name = this.getRealName(w.ParameterName);
+
+                where += "and   " + name + "" + w.ParameterName;
+            });
+
+            sql += set;
+            
+            return sql;
+        }
+        private string getRealName(string ParameterName) {
+            string name = "";
+            if (ParameterName.StartsWith("@"))
+            {
+                name =ParameterName.Substring(1);
+            }
+            else if (ParameterName.StartsWith("?"))
+            {
+                name =ParameterName.Substring(1);
+            }
+            else
+            {
+                //name = "@" + name;
+                throw new ArgumentException("parameter name must containt ? or @ either at the beginning");
+            }
+            return name;
         }
         public string InsertResolver(string tableName, List<MySqlParameter> insertParams)
         {
@@ -106,22 +160,6 @@ namespace Xarenisoft.DB.Mysql
 
 
             sql+= String.Join(",", paramsNamesP.ToArray());
-            /*
-                        insertParams.ConvertAll(p =>
-            {
-                string name = "";
-                if (p.ParameterName.StartsWith("@"))
-                {
-                    name = p.ParameterName.Substring(1);
-                }
-                else if (p.ParameterName.StartsWith("?"))
-                {
-                    name = p.ParameterName.Substring(1);
-                }
-                return name;
-            });
-            */
-
             sql += ");";
             return sql;
         }
@@ -275,13 +313,25 @@ namespace Xarenisoft.DB.Mysql
 
             return MySqlDbType.Binary;
         }
+
+        public string Server { get; set; }
+        public string User { get; set; }
+        public string Password { get; set; }
+        public string Database { get; set; }
+        public string Port { get; set; }
+        public string ConnectionString { get; set; }
+
         public MySqlConnection Connect()
         {
             MySqlConnection conn;
             string myConnectionString;
 
-            myConnectionString = "server=127.0.0.1;uid=root;" +
-                "pwd=123456;database=poe_app_piloto";
+            if(!String.IsNullOrEmpty(ConnectionString)){
+                myConnectionString=ConnectionString;
+            }else{
+                myConnectionString = string.Format("server={0};Port={1},uid='{2}';pwd={3};database={4}",Server,Port,User,Password,Database);
+
+            }
             //si la conexion esta abierta 
             if (this.connection != null && this.connection.State != ConnectionState.Closed) {
                 return this.connection;
@@ -298,6 +348,13 @@ namespace Xarenisoft.DB.Mysql
             {
                 throw ex;
             }
+        }
+        public BaseDAO(){
+            Server="127.0.0.1";
+            Port="3306";
+            Password="";
+            User="";
+
         }
         protected MySqlConnection connection { get; set; }
         public MySqlConnection getConnection() {
